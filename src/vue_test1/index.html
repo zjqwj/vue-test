@@ -4,10 +4,198 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Document</title>
+    <title>购物车</title>
+    <style>
+        .active{
+            color: red;
+            background-color: #ddd;
+        }
+        .message-box { padding: 10px 20px; background: #4fc08d; border: 1px solid #42b983; }
+        .message-box-close { float: right; }
+    </style>
 </head>
 <body>
-    hello word
-    <script src="hello.js"></script>
+    <!-- 宿主文件 -->
+    <div id="app">
+        <!-- 弹窗组件  .sync  等于 @update:show=""-->
+            <message :show.sync="show" >
+                <!-- 具名插槽 -->
+                 <template v-slot:title>恭喜</template>
+                 <!-- 默认插槽 -->
+                  <template v-slot:default>新增课程成功！</template> 
+            </message>
+        <!-- 插值文本 -->
+        <h2 :title="title">
+            {{title}}
+        </h2>
+        <!-- 表单输入绑定 -->
+        <!-- <course-add @add-course="addCourse"></course-add> -->
+        <course-add v-model="course" @add-course="addCourse"></course-add> 
+        <!-- 等价于下面的 -->
+        <!-- <course-add :value="course" @input="course=$event" @add-course="addCourse"></course-add> -->
+         <!-- enter修饰符 -->
+        <!-- <p>
+            <input type="text" v-model="course" v-on:keydown.enter="addCourse">
+            <button @click="addCourse">新增</button>
+        </p> -->
+
+<!--添加批量价格更新-->
+ <p>
+     <input v-model.number="price"> 
+     <button @click="batchUpdate">批量更新价格</button> 
+    </p> 
+
+
+        <!-- 条件渲染 -->
+        <p v-if="courses.length ===0"> 没对象</p>
+        <!-- 列表渲染 -->
+        <!-- <div v-for="c in courses" :key="c"
+         :class="{active: selectedCourse === c}" @click="selectedCourse = c">
+            {{ c }}
+        </div> -->
+        <course-list :courses="courses"></course-list>
+        <!-- <div v-else>
+                <div v-for="c in courses" :key="c" 
+                :style="{backgroundColor: selectedCourse === c? '#ddd': 'transparent'}" @click="selectedCourse = c">
+                   {{ c }}
+               </div>
+        </div> -->
+        <!-- 插槽实现内容分发 --> 
+        <!-- <message :show.sync="show">新增课程成功！</message> -->
+        <p>
+            <!-- 计算属性 -->
+            课程总数：{{total}}
+            {{totalCount}}
+        </p>
+    </div>
+    
+    <script src="vue.js"></script>
+    <!-- <script src="hello.js"></script> -->
+    <script>
+        // 弹窗组件
+        Vue.component('message',{
+            props:['show'],
+            template: `
+                <div class="message-box" v-if="show">
+                    <!-- 具名插槽-->
+                    <slot name="title"></slot>
+                    <slot></slot>
+                    <span class="message-box-close" @click="$emit('update:show', false)">x</span>
+                    </div>
+            `
+        })
+        //课程新增组件
+        Vue.component('course-add',{
+            //接受父组件传递value，不需要额外维护course
+            props:['value'],
+            template: `
+            <p>
+                <!--需要实现input的:value和@input-->
+            <input type="text" :value="value" @input="onInput" v-on:keydown.enter="addCourse">
+            <button @click="addCourse">新增</button>
+        </p>
+            `,
+            methods: {
+                addCourse(){
+                    //派发时间，同志副组件新增课程, 命名建议横线
+                    this.$emit('add-course');
+                    // this.course = '';
+                },
+                onInput(e){
+                    this.$emit('input',e.target.value)
+                }
+            }
+        })
+        //课程列表组件
+        Vue.component("course-list",{
+            data(){
+                return {
+                    selectedCourse: '',
+                }
+            },
+            props: {
+                courses:{
+                    type: Array,
+                    default:[]
+                }
+            },
+            template: `
+            <div v-else>
+                <div v-for="c in courses" :key="c.name" 
+                :style="{backgroundColor: selectedCourse === c.name? '#ddd': 'transparent'}" 
+            @click="selectedCourse = c.name">
+                   {{ c.name }} + $ {{c.price}}
+               </div>
+        </div>
+            `,
+           
+        })
+        const app = new Vue({
+        el: "#app",
+            data(){
+                return {
+                    title: '我的购物车',
+                    courses: [{name:'iphone'},{name:'airpods'}],
+                    course: '',
+                    selectedCourse: '',
+                    totalCount: 0,
+                    price:0,
+                    show: true
+                }
+            },
+            methods: {
+                addCourse() {
+                    // 添加
+                    this.courses.push(this.course);
+                    this.course = '';
+                    this.show = true;
+                },
+                // 添加批量价格更新方法 
+                batchUpdate() { 
+                    this.courses.forEach(c => { 
+                    // c.price = this.price; // no ok 
+                    Vue.set(c, 'price', this.price); // ok 
+                }) }
+            },
+            rener(){
+             // 编译出的模版
+// with(this){return _c('div',{attrs:{"id":"app"}},[_c('h2',{attrs:{"title":title}},[_v("\n            "+_s(title)+"\n        ")]),_v(" "),_c('p',[_c('input',{directives:[{name:"model",rawName:"v-model",value:(course),expression:"course"}],attrs:{"type":"text"},domProps:{"value":(course)},on:{"keydown":function($event){if(!$event.type.indexOf('key')&&_k($event.keyCode,"enter",13,$event.key,"Enter"))return null;return addCourse($event)},"input":function($event){if($event.target.composing)return;course=$event.target.value}}}),_v(" "),_c('button',{on:{"click":addCourse}},[_v("新增")])]),_v(" "),(courses.length ===0)?_c('p',[_v(" 没对象")]):_c('div',_l((courses),function(c){return _c('div',{key:c,style:({backgroundColor: selectedCourse === c? '#ddd': 'transparent'}),on:{"click":function($event){selectedCourse = c}}},[_v("\n                   "+_s(c)+"\n               ")])}),0)])}
+
+            },
+            computed: {
+                total(){
+                    // 计算属性有缓存性：如果没回应发生变化，则也没不会重新渲染
+                    return this.courses.length + '门'
+                }
+            },
+            // watch: {
+            //     // 监听的值, 变化才能执行
+            //     courses(newValue, oldValue){
+            //         this.totalCount = newValue.length + '门'
+            //     }
+            // },
+            watch: {
+                data1(newValue, oldValue){
+                    this.totalCount = newValue.length + '门'
+                },
+                // 监听的值, 变化才能执行
+                courses:{
+                    // 立即执行一次
+                    immediate: true,
+                    // deep: true,
+                    handler(newValue){
+                        this.totalCount = newValue.length + '门'
+                    }    
+                    
+                }
+            }
+
+        })
+        setTimeout(function(){
+            // app.title = "gou"
+            
+        },500)
+        console.log(app.$options.render);
+    </script>
 </body>
 </html>
