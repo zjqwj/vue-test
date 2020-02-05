@@ -10,24 +10,53 @@
             color: red;
             background-color: #ddd;
         }
-        .message-box { padding: 10px 20px; background: #4fc08d; border: 1px solid #42b983; }
+        .icon {
+            width: 1em;
+            height: 1em;
+            vertical-align: -0.15em;
+            fill: currentColor;
+            overflow: hidden;
+        }
+        .message-box { padding: 10px 20px; }
+        .success { background: #4fc08d; border: 1px solid #42b983; }
+        .warning { background: #f66; border: 1px solid #d63200; }
         .message-box-close { float: right; }
+        /* 定义过度动画 */
+         .fade-enter-active, .fade-leave-active { transition: opacity .5s; }
+         .fade-enter, .fade-leave-to { opacity: 0; }
     </style>
+    <link href="https://cdn.jsdelivr.net/npm/animate.css@3.5.1" rel="stylesheet" type="text/css">
 </head>
 <body>
     <!-- 宿主文件 -->
     <div id="app">
         <!-- 弹窗组件  .sync  等于 @update:show=""-->
-            <message :show.sync="show" >
+            <!-- <message :show.sync="show" class="success"> -->
+                    <message ref="msg" class="success">
                 <!-- 具名插槽 -->
                  <template v-slot:title>恭喜</template>
                  <!-- 默认插槽 -->
-                  <template v-slot:default>新增课程成功！</template> 
+                  <template v-slot:default>新增物品成功！</template> 
             </message>
+            <!--新增警告提示窗--> 
+            <message ref="msg" class="warning"> 
+                <template v-slot:title> <strong>警告</strong> </template>
+                 <template v-slot:default> 请输入物品名称！ </template>
+             </message>
+             <heading level="2" :title="title" icon="cart">
+                 {{title}}
+                 </heading>
         <!-- 插值文本 -->
         <h2 :title="title">
             {{title}}
+            <svg class="icon">
+                <use xlink:href="#icon-cart"></use>
+            </svg>
         </h2>
+        <!-- 派发关闭事件 -->
+         <div class="toolbar" v-permission="'admin'">
+              <button @click="$bus.$emit('message-close')">清空提示框</button> 
+        </div>
         <!-- 表单输入绑定 -->
         <!-- <course-add @add-course="addCourse"></course-add> -->
         <course-add v-model="course" @add-course="addCourse"></course-add> 
@@ -64,25 +93,120 @@
         <!-- <message :show.sync="show">新增课程成功！</message> -->
         <p>
             <!-- 计算属性 -->
-            课程总数：{{total}}
+            物品总数：{{total}}
             {{totalCount}}
         </p>
     </div>
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/velocity/1.2.3/velocity.min.js"> </script>
     <script src="vue.js"></script>
+    <script src="https://at.alicdn.com/t/font_1628317_ndzq5wrrfp.js"></script>
     <!-- <script src="hello.js"></script> -->
     <script>
+        //模拟用户角色
+        const role = 'admin'
+        //事件总线
+        Vue.prototype.$bus = new Vue();
+        // heading组件
+        // <heading :level="2" :title="title" icon="icon">{{title}}</heading>
+        // <h2></h2>
+        Vue.component('heading',{
+            props:{
+                level:{
+                    type: String,
+                    require: true
+                },
+                title: {
+                    type: String,
+                    default: ''
+                },
+                icon: {
+                    type: String
+                }
+            },
+            render(h){
+                //子节点数组
+                let children = [];
+                // <svg class="icon"><use xlink:href="#icon-cart"></svg>
+                if(this.icon){
+                    children.push(h('svg',{
+                        class: 'icon'
+                    },
+                    [h(
+                        'use',
+                        { attrs:{'xlink:href':'#icon-'+this.icon}}
+                    
+                    )]
+                    ))
+                }
+                // 拼接
+                children = children.concat(this.$slots.default)
+                // snabb dom
+               return h(
+                    'h' + this.level,// 参数1，标签
+                    {attrs:{ title: this.title}},// 参数2： {}
+                    children// 参数3：子节点的vnode数组
+                )
+            }
+        })
         // 弹窗组件
         Vue.component('message',{
-            props:['show'],
+            data(){
+                return {
+                    show: false
+                }
+            },
             template: `
+                <transition name="fade" @before-enter="beforeEnter" @enter="enter"
+                v-on:before-leave="beforeLeave" v-on:leave="leave"
+                >
                 <div class="message-box" v-if="show">
                     <!-- 具名插槽-->
                     <slot name="title"></slot>
                     <slot></slot>
-                    <span class="message-box-close" @click="$emit('update:show', false)">x</span>
+                    <span class="message-box-close" @click="toggle">x</span>
                     </div>
-            `
+                    </transition>
+            `,
+            methods:{
+                toggle(){
+                    this.show = !this.show;
+                },
+                beforeEnter(el){
+                    // 动画出事状态
+                    el.style.opacity = 0;
+                },
+                enter(el, done){
+                    // 触发浏览器回流
+                    document.body.offsetHeight;
+                    // 动画结束状态
+                    el.style.opacity = 1;
+                    // 监听动画结束事件，并执行done函数
+                    el.addEventListener('ttansitionend',done);
+                },
+                beforeLeave(el){
+                    el.style.opacity = 1
+                },
+                leave(el, done){
+                    Velocity(el, { opacity: 0 }, { duration: 500, complete: done })
+                }
+            },
+            mounted(){
+                this.$bus.$on('message-close', this.toggle );
+            }
+        })
+        // 自定义指令
+        Vue.directive('focus',{
+            inserted(el,binding){
+                el.focus()
+            }
+        })
+        Vue.directive('permission',{
+            inserted(el, binding){
+                console.log(binding);
+                if(binding.value !== role){
+                    el.parentElement.removeChild(el);
+                }
+            }
         })
         //课程新增组件
         Vue.component('course-add',{
@@ -91,13 +215,14 @@
             template: `
             <p>
                 <!--需要实现input的:value和@input-->
-            <input type="text" :value="value" @input="onInput" v-on:keydown.enter="addCourse">
+            <input type="text" :value="value" @input="onInput"
+             v-on:keydown.enter="addCourse" v-focus>
             <button @click="addCourse">新增</button>
         </p>
             `,
             methods: {
                 addCourse(){
-                    //派发时间，同志副组件新增课程, 命名建议横线
+                    //派发事件，同时父组件新增课程, 命名建议横线
                     this.$emit('add-course');
                     // this.course = '';
                 },
@@ -106,6 +231,10 @@
                 }
             }
         })
+        //全局过滤器
+        // Vue.filter('currency',function(value){
+        //     return value
+        // })
         //课程列表组件
         Vue.component("course-list",{
             data(){
@@ -121,13 +250,20 @@
             },
             template: `
             <div v-else>
+                <transition-group name="fade">
                 <div v-for="c in courses" :key="c.name" 
                 :style="{backgroundColor: selectedCourse === c.name? '#ddd': 'transparent'}" 
             @click="selectedCourse = c.name">
-                   {{ c.name }} + $ {{c.price}}
+                   {{ c.name }} + {{c.price|currency("¥")}}
                </div>
+               </transition-group>
         </div>
             `,
+            filters: {
+                currency(value, symbol = "$"){// 默认值就是前面的值
+                    return symbol +value
+                }
+            }
            
         })
         const app = new Vue({
@@ -139,16 +275,22 @@
                     course: '',
                     selectedCourse: '',
                     totalCount: 0,
-                    price:0,
-                    show: true
+                  
+                    price:0
                 }
             },
             methods: {
                 addCourse() {
-                    // 添加
-                    this.courses.push(this.course);
-                    this.course = '';
-                    this.show = true;
+                    if(this.course){
+                        // 添加
+                        this.courses.push({name:this.course});
+                        this.course = '';
+                        this.$refs.msg.toggle(); 
+                        
+                    } else {
+                        this.$refs.msg.toggle(); 
+                    }
+                    
                 },
                 // 添加批量价格更新方法 
                 batchUpdate() { 
